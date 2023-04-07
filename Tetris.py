@@ -84,21 +84,31 @@ class Tetris():
             
             row_list =[r for(r,c) in self.mino]
             col_list =[c for(r,c) in self.mino]
-            size = max(max(col_list) - min(col_list), max(row_list)-min(row_list))
-            rotated_mino = [(c, size-r) for (r, c) in self.tetromino]
             
+            size = max(max(row_list)-min(row_list), max(col_list) - min(col_list))
+            rotated_mino = [(c, size-r) for (r, c) in self.mino]
+
             if dir == 0 :
                 rotated_mino = [(size-c,r) for (r, c) in self.mino]
             elif dir == 1:
                 rotated_mino = [(c, size-r) for (r, c) in self.mino]
 
             next_offset = self.mino_offset[:]
-            mino_coord = [(r + next_offset[0], c + next_offset[1]) for (r,c) in rotated_mino]
+            next_mino_coord = [(r + next_offset[0], c + next_offset[1]) for (r,c) in rotated_mino]
+            
+            #필드 밖일때 예외처리
+            min_pos_x = min(c for (r, c) in next_mino_coord)
+            max_pos_x = max(c for (r, c) in next_mino_coord)
+            max_pos_y = max(r for (r, c) in next_mino_coord)
+            
+            next_offset[1] -= min(0, min_pos_x) # x 좌표 : -1 , -2 일때 예외처리
+            next_offset[1] += min(0, Tetris.FIELD_WIDTH - (1 + max_pos_x)) # 필드 x 좌표 벗어난 만큼 뺄셈.
+            next_offset[0] += min(0, Tetris.FIELD_HEIGHT - (1 + max_pos_y))# 필드 y 좌표 벗어난 만큼 뺄셈.
 
-            if all(self.is_cell_free(r, c) for (r, c) in mino_coord):
+            next_mino_coord = [(r + self.mino_offset[0], c + self.mino_offset[1]) for (r,c) in rotated_mino]
+
+            if all(self.is_cell_free(r, c) for (r, c) in next_mino_coord):
                     self.mino, self.mino_offset = rotated_mino, next_offset
-                    print('qkfds')
-        #todo : 충돌 구현
     
     def is_cell_free(self, r, c):#(r,c) 위치가 0 인지 체크.
         return r < Tetris.FIELD_HEIGHT and 0 <= c < Tetris.FIELD_WIDTH and (r < 0 or self.field[r][c] == 0)
