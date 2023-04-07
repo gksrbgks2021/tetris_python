@@ -27,7 +27,7 @@ class Tetris():
         self.total_lines_eliminated = 0
         self.game_over = False
         self.move_lock = Lock()
-        self.reset_mino()
+        self.reset_mino()#미노 가져옴.
     
     def reset_mino(self)-> None: #미노를 하나 가져옵니다.
         self.mino = random.choice(Tetris.MINOS)[:]#랜덤으로 하나 가져옵니다.
@@ -81,26 +81,27 @@ class Tetris():
             if self.game_over:
                 self.game_over_action()
                 return
-            size = 2
-        rotated_mino = []
-        print(dir)
-        if dir == 0 :
-            rotated_mino = [(size-c,r) for (r, c) in self.mino]
-        elif dir == 1:
-            rotated_mino = [(c, size-r) for (r, c) in self.mino]
-        
-        next_offset = self.mino_offset[:]
-        mino_coord = [(r + next_offset[0], c + next_offset[1]) for (r,c) in rotated_mino]
+            
+            row_list =[r for(r,c) in self.mino]
+            col_list =[c for(r,c) in self.mino]
+            size = max(max(col_list) - min(col_list), max(row_list)-min(row_list))
+            rotated_mino = [(c, size-r) for (r, c) in self.tetromino]
+            
+            if dir == 0 :
+                rotated_mino = [(size-c,r) for (r, c) in self.mino]
+            elif dir == 1:
+                rotated_mino = [(c, size-r) for (r, c) in self.mino]
 
-        if all(self.is_cell_free(r, c) for (r, c) in mino_coord):
-                self.mino, self.mino_offset = rotated_mino, next_offset
-                print('qkfds')
+            next_offset = self.mino_offset[:]
+            mino_coord = [(r + next_offset[0], c + next_offset[1]) for (r,c) in rotated_mino]
 
+            if all(self.is_cell_free(r, c) for (r, c) in mino_coord):
+                    self.mino, self.mino_offset = rotated_mino, next_offset
+                    print('qkfds')
         #todo : 충돌 구현
     
     def is_cell_free(self, r, c):#(r,c) 위치가 0 인지 체크.
         return r < Tetris.FIELD_HEIGHT and 0 <= c < Tetris.FIELD_WIDTH and (r < 0 or self.field[r][c] == 0)
-
             
     def game_over_action(self) -> None:
         #todo : imple this method
