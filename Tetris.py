@@ -42,10 +42,10 @@ class Tetris():
         #todo : impl this method
         pass
 
-    def get_color(self, r, c):
+    def get_color(self, r, c) -> int:
         return self.mino_color if (r, c) in self.get_mino_coords() else self.field[r][c]
 
-    def apply_mino(self):
+    def apply_mino(self) -> None:
             for (r, c) in self.get_mino_coords():
                 self.field[r][c] = self.mino_color
 
@@ -57,7 +57,7 @@ class Tetris():
             self.level = self.total_lines_eliminated // 10
             self.reset_mino()
 
-    def move(self, dr, dc):
+    def move(self, dr, dc) -> None:
         """
         move(0, -1 ) move (0, 1) 로 호출.
         """
@@ -72,7 +72,7 @@ class Tetris():
                 if not self.game_over:
                     self.apply_mino() #현재 미노를 필드에 추가.
 
-    def rotate(self, dir):
+    def rotate(self, dir) -> None:
         """
         dir = 0 반시계 방향 왼쪽으로 90도 회전
         dir = 1 시계 방향 오른쪽으로 90도 회전
@@ -82,8 +82,9 @@ class Tetris():
                 self.game_over_action()
                 return
             
-            row_list =[r for(r,c) in self.mino]
-            col_list =[c for(r,c) in self.mino]
+            row_list , col_list = zip(*self.mino)
+            #row_list =[r for(r,c) in self.mino]
+            #col_list =[c for(r,c) in self.mino]
             
             size = max(max(row_list)-min(row_list), max(col_list) - min(col_list))
             rotated_mino = [(c, size-r) for (r, c) in self.mino]
@@ -110,7 +111,7 @@ class Tetris():
             if all(self.is_cell_free(r, c) for (r, c) in next_mino_coord):
                     self.mino, self.mino_offset = rotated_mino, next_offset
     
-    def is_cell_free(self, r, c):#(r,c) 위치가 0 인지 체크.
+    def is_cell_free(self, r, c) -> bool :#(r,c) 위치가 0 인지 체크.
         return r < Tetris.FIELD_HEIGHT and 0 <= c < Tetris.FIELD_WIDTH and (r < 0 or self.field[r][c] == 0)
             
     def game_over_action(self) -> None:
