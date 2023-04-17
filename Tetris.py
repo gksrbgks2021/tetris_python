@@ -3,6 +3,7 @@ import random
 from threading import Lock
 from typing import List, Tuple, Dict
 from Color import COLORS
+import numpy as np
 import pickle
 
 class Tetris():
@@ -20,7 +21,7 @@ class Tetris():
     ]
     
     #type hints
-    def __init__(self, mode = 'single') -> None:
+    def __init__(self) -> None:
         #2차원 필드 생성. height x width
         self.field = [[0 for c in range(Tetris.FIELD_WIDTH)] for r in range(Tetris.FIELD_HEIGHT)]
         self.score = 0
@@ -29,14 +30,17 @@ class Tetris():
         self.game_over = False
         self.move_lock = Lock()
         self.reset_mino()#미노 가져옴.
-        if mode == 'agent':
-            self.q_table = self.initialize_q_table()
-            self.learning_rate = 0.1
-            self.discount_factor = 0.99
-            self.epsilon = 0.1
+        
+        self.learning_rate = 0.1
+        self.discount_factor = 0.99
+        self.epsilon = 0.1
+        self.num_actions = 3
+        #큐러닝 attribute
+        #self.q_table = self.initialize_q_table()
     
     def reset_mino(self)-> None: #미노를 하나 가져옵니다.
-        self.mino = random.choice(Tetris.MINOS)[:]#랜덤으로 하나 가져옵니다.
+        self.mino_index = random.randint(0,7)
+        self.mino =Tetris.MINOS[self.mino_index][:]#랜덤으로 하나 가져옵니다.
         self.mino_color = random.randint(1, len(COLORS)-1)
         self.mino_offset = [-2, Tetris.FIELD_WIDTH//2] #위치 시작점.
         self.game_over = False
@@ -56,6 +60,7 @@ class Tetris():
                 self.field[r][c] = self.mino_color
 
             new_field = [r for r in self.field if any(tile == 0 for tile in r)]
+            #제거 된 라인 수 
             lines_eliminated = len(self.field)-len(new_field)
             self.total_lines_eliminated += lines_eliminated
             self.field = [[0]*Tetris.FIELD_WIDTH for x in range(lines_eliminated)] + new_field
@@ -78,6 +83,12 @@ class Tetris():
                 if not self.game_over:
                     self.apply_mino() #현재 미노를 필드에 추가.
 
+    def get_mino_size(self) -> int:
+        #row_list =[r for(r,c) in self.mino]
+        #col_list =[c for(r,c) in self.mino]
+        row_list , col_list = zip(*self.mino)
+        return max(max(row_list)-min(row_list), max(col_list) - min(col_list))
+        
     def rotate(self, dir) -> None:
         """
         dir = 0 반시계 방향 왼쪽으로 90도 회전
@@ -88,11 +99,7 @@ class Tetris():
                 self.game_over_action()
                 return
             
-            row_list , col_list = zip(*self.mino)
-            #row_list =[r for(r,c) in self.mino]
-            #col_list =[c for(r,c) in self.mino]
-            
-            size = max(max(row_list)-min(row_list), max(col_list) - min(col_list))
+            size = self.get_mino_size()
             rotated_mino = [(c, size-r) for (r, c) in self.mino]
 
             if dir == 0 :
@@ -123,43 +130,3 @@ class Tetris():
     def game_over_action(self) -> None:
         #todo : imple this method
         print('end game')
-    """
-        ----------------------------------------------------------
-        큐러닝 알고리즘
-    """
-    def initialize_q_table(self):
-        """
-        Initialize the Q-table with zeros. The dimensions of the Q-table
-        depend on the state representation and the number of possible actions.
-        """
-        pass  # Implement this method
-
-    def get_state(self):
-        """
-        Get the current state representation of the Tetris game.
-        """
-        pass  # Implement this method
-
-    def choose_action(self, state):
-        """
-        Choose an action using an epsilon-greedy strategy.
-        """
-        pass  # Implement this method
-
-    def update_q_table(self, state, action, reward, next_state):
-        """
-        Update the Q-table using the Q-learning algorithm update rule.
-        """
-        pass  # Implement this method
-
-    def play_one_step(self):
-        """
-        Play one step of the game, update the Q-table, and return the reward.
-        """
-        state = self.get_state()
-        action = self.choose_action(state)
-        # Perform the chosen action and get the reward
-        reward = 0  # Calculate the reward based on the game state
-        self.move(1, 0)  # Move the mino down as part of the game loop
-        next_state = self.get_state()
-        self.update_q_table(state, action, reward, next_state)
