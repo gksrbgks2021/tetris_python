@@ -3,6 +3,7 @@ import random
 from threading import Lock
 from typing import List, Tuple, Dict
 from Color import COLORS
+import pickle
 
 class Tetris():
     FIELD_HEIGHT = 20
@@ -19,7 +20,7 @@ class Tetris():
     ]
     
     #type hints
-    def __init__(self) -> None:
+    def __init__(self, mode = 'single') -> None:
         #2차원 필드 생성. height x width
         self.field = [[0 for c in range(Tetris.FIELD_WIDTH)] for r in range(Tetris.FIELD_HEIGHT)]
         self.score = 0
@@ -28,6 +29,11 @@ class Tetris():
         self.game_over = False
         self.move_lock = Lock()
         self.reset_mino()#미노 가져옴.
+        if mode == 'agent':
+            self.q_table = self.initialize_q_table()
+            self.learning_rate = 0.1
+            self.discount_factor = 0.99
+            self.epsilon = 0.1
     
     def reset_mino(self)-> None: #미노를 하나 가져옵니다.
         self.mino = random.choice(Tetris.MINOS)[:]#랜덤으로 하나 가져옵니다.
@@ -117,3 +123,43 @@ class Tetris():
     def game_over_action(self) -> None:
         #todo : imple this method
         print('end game')
+    """
+        ----------------------------------------------------------
+        큐러닝 알고리즘
+    """
+    def initialize_q_table(self):
+        """
+        Initialize the Q-table with zeros. The dimensions of the Q-table
+        depend on the state representation and the number of possible actions.
+        """
+        pass  # Implement this method
+
+    def get_state(self):
+        """
+        Get the current state representation of the Tetris game.
+        """
+        pass  # Implement this method
+
+    def choose_action(self, state):
+        """
+        Choose an action using an epsilon-greedy strategy.
+        """
+        pass  # Implement this method
+
+    def update_q_table(self, state, action, reward, next_state):
+        """
+        Update the Q-table using the Q-learning algorithm update rule.
+        """
+        pass  # Implement this method
+
+    def play_one_step(self):
+        """
+        Play one step of the game, update the Q-table, and return the reward.
+        """
+        state = self.get_state()
+        action = self.choose_action(state)
+        # Perform the chosen action and get the reward
+        reward = 0  # Calculate the reward based on the game state
+        self.move(1, 0)  # Move the mino down as part of the game loop
+        next_state = self.get_state()
+        self.update_q_table(state, action, reward, next_state)
