@@ -39,20 +39,20 @@ class Tetris():
         #self.q_table = self.initialize_q_table()
     
     def reset_mino(self)-> None: #미노를 하나 가져옵니다.
-        self.mino_index = random.randint(0,7)
+        self.mino_index = random.randint(0,6)
         self.mino =Tetris.MINOS[self.mino_index][:]#랜덤으로 하나 가져옵니다.
         self.mino_color = random.randint(1, len(COLORS)-1)
         self.mino_offset = [-2, Tetris.FIELD_WIDTH//2] #위치 시작점.
         self.game_over = False
 
-    def get_mino_coords(self)-> List[Tuple[int, int]]: #좌표를 얻습니다.
+    def get_mino_coords(self): #좌표를 얻습니다.
         return [(r+self.mino_offset[0], c + self.mino_offset[1]) for (r, c) in self.mino]
     
     def add_mino_queue(self, size = 1)-> None:
         #todo : impl this method
         pass
 
-    def get_color(self, r, c) -> int:
+    def get_color(self, r, c):
         return self.mino_color if (r, c) in self.get_mino_coords() else self.field[r][c]
 
     def apply_mino(self) -> None:
@@ -89,7 +89,7 @@ class Tetris():
         row_list , col_list = zip(*self.mino)
         return max(max(row_list)-min(row_list), max(col_list) - min(col_list))
         
-    def rotate(self, dir) -> None:
+    def rotate(self, dir):
         """
         dir = 0 반시계 방향 왼쪽으로 90도 회전
         dir = 1 시계 방향 오른쪽으로 90도 회전
@@ -120,9 +120,10 @@ class Tetris():
             next_offset[0] += min(0, Tetris.FIELD_HEIGHT - (1 + max_pos_y))# 필드 y 좌표 벗어난 만큼 뺄셈.
 
             next_mino_coord = [(r + self.mino_offset[0], c + self.mino_offset[1]) for (r,c) in rotated_mino]
-
+            
             if all(self.is_cell_free(r, c) for (r, c) in next_mino_coord):
-                    self.mino, self.mino_offset = rotated_mino, next_offset
+                self.mino, self.mino_offset = rotated_mino, next_offset
+            
     
     def is_cell_free(self, r, c) -> bool :#(r,c) 위치가 0 인지 체크.
         return r < Tetris.FIELD_HEIGHT and 0 <= c < Tetris.FIELD_WIDTH and (r < 0 or self.field[r][c] == 0)

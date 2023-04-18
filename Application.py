@@ -1,7 +1,7 @@
 import tkinter as tk
 from Tetris import Tetris
 from Color import COLORS
-from RLmodel_v01 import RLmodel_v01 as agent  # Make sure you import the TetrisGUI class
+from RLAgent_v1 import RLAgent_v1 as agent  # Make sure you import the TetrisGUI class
 import threading
 
 """
@@ -81,18 +81,51 @@ class Application(tk.Frame):
     def __init__(self, master=None):
         super().__init__(master)
         self.user_tetris = Tetris()
-        self.rl_tetris = agent(Tetris())
+        self.tetris_agent = agent(Tetris())
         self.pack()
         self.create_widgets()
+        self.init_val()#변수 초기화
         self.update_clock()
 
         # Start the RL agent's moves in a separate thread
         #self.agent_thread = threading.Thread(target=self.agent_moves)
         #self.agent_thread.start()
 
+    def init_val(self):
+        self.MAX_GAMES = 0
+        self.games_completed = 0
+        self.scoreArray = []
+        self.game_index_array = []
+        self.weight0Array = []
+        self.weight1Array = []
+        self.weight2Array = []
+        self.weight3Array = []
+        self.weight4Array = []
+        self.explore_change = 0.5
+
     def update_clock(self):
         self.user_tetris.move(1, 0)#테트리스를 움직입니다.
-        self.rl_tetris.move(1,0) #agent 움직입니다. 
+        if self.tetris_agent.game_over:#종료 기능
+            return
+        move, weight = self.tetris_agent.gradient_descent(self.tetris_agent.weights)
+        #move = (rot, down)
+        print('get moved')
+        for i in range(move[0]):
+            self.tetris_agent.rotate(1)
+        for j in range(move[1]):
+            self.tetris_agent.move(1,0)
+                
+        #newScore, weights, explore_change
+        #self.tetris_agent.move(1,0) #agent 움직입니다. 
+        #newScore, weights, explore_change = self.run_game(weights, explore_change)
+        #print("Game Number ", self.games_completed, " achieved a score of: ", newScore)
+        #self.scoreArray.append(newScore)
+        #self.game_index_array.append(self.games_completed)
+        #self.weight0Array.append(-weights[0])
+        #self.weight1Array.append(-weights[1])
+        #self.weight2Array.append(-weights[2])
+        #self.weight3Array.append(-weights[3])
+        #self.weight4Array.append(-weights[4])
         self.update()
         self.master.after(int(1000 * (0.66 ** self.user_tetris.level)), self.update_clock)
 
@@ -131,26 +164,24 @@ class Application(tk.Frame):
         return canvas
 
     def agent_moves(self):
-        while not self.rl_tetris.game_over:
+        while not self.tetris_agent.game_over:
             print('agent move..')
-            self.rl_tetris.move(1,0)
+            self.tetris_agent.move(1,0)
             self.update()
             self.master.after(50)
 
     def update(self):
         self.update_canvas(self.user_canvas, self.user_tetris)
-        self.update_canvas(self.rl_canvas, self.rl_tetris)
+        self.update_canvas(self.rl_canvas, self.tetris_agent)
 
         self.user_status_msg['text'] = "User\nScore: {}\nLevel: {}".format(self.user_tetris.score, self.user_tetris.level)
-        self.rl_status_msg['text'] = "Agent\nScore: {}\nLevel: {}".format(self.rl_tetris.score, self.rl_tetris.level)
-        self.game_over_msg['text'] = "GAME OVER.\n" if self.user_tetris.game_over or self.rl_tetris.game_over else ""
+        self.rl_status_msg['text'] = "Agent\nScore: {}\nLevel: {}".format(self.tetris_agent.score, self.tetris_agent.level)
+        self.game_over_msg['text'] = "GAME OVER.\n" if self.user_tetris.game_over or self.tetris_agent.game_over else ""
 
     def update_canvas(self, canvas, tetris):
         for i, _id in enumerate(canvas.rectangles):
             color_num = tetris.get_color(i // tetris.FIELD_WIDTH, i % tetris.FIELD_WIDTH)
             canvas.itemconfig(_id, fill=COLORS[color_num])
-
-
 
 
 root = tk.Tk()
