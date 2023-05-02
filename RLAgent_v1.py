@@ -17,10 +17,13 @@ class RLAgent_v1(Tetris):
     def __init__(self, master):
         super().__init__()
         self.master = master
-        self.weights =[]
+        self.weights = []
         self.explore_change = 0.5
+        self.decay_rate = 0.99
         self.alpha = 0.01
         self.gamma = 0.9
+        self.evaluation_interval = 100
+        self.evaluation_scores = []
         print(self.num_actions)
 
     def move_simul(self, dr, dc,field, mino,offset, stop_flag) : # need 6 param
@@ -192,9 +195,9 @@ class RLAgent_v1(Tetris):
             move = best_move
         return move
     
-    #경사 하강법
-    def gradient_descent(self,weights):
-        #move를 찾는다.
+    #학습 정책
+    def train_policy(self,weights):
+        #action 탐색
         move = self.find_best_move(self.field, self.mino, weights, self.__get_explore_change__())
         current_params = self.get_state(self.field)
         test_field = copy.deepcopy(self.field)
@@ -205,7 +208,7 @@ class RLAgent_v1(Tetris):
             new_params = self.get_state(test_field[0])
             one_step_reward = test_field[1]
         
-        #경사하강법 학습
+        #강화학습
         for i in range(0, len(weights)):
             weights[i] = weights[i] + self.alpha * weights[i] * (
                 one_step_reward - current_params[i] + self.gamma * new_params[i])
@@ -217,7 +220,7 @@ class RLAgent_v1(Tetris):
         return move, weights
     
     def choose_action(self):
-        move, _ = self.gradient_descent(self.weights)
+        move, _ = self.train_policy(self.weights)
         return move
     
     def __get_explore_change__(self):
