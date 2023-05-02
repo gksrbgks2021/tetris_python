@@ -10,14 +10,14 @@ from typing import List, Tuple, Dict
 
 class RLAgent_v1(Tetris):
 
-    #미노 회전할수 있는 상태. 
+    #미노 회전할수 있는 상태.
     #O,L,J, Z, T, S, I
     move_cnt = [1,4,4,2,4,2,2]
     
     def __init__(self, master):
         super().__init__()
         self.master = master
-        self.weights = [-1, -1, -1, -30]
+        self.weights =[]
         self.explore_change = 0.5
         self.alpha = 0.01
         self.gamma = 0.9
@@ -114,7 +114,7 @@ class RLAgent_v1(Tetris):
         # 위에서 아래로 빈 셀의 개수(꼭대기는 1 인 셀)을 센다.
         for i in range(0, Tetris.FIELD_HEIGHT):
             occupied = 0 
-            for j in range(0, Tetris.FIELD_WIDTH):  # Scan from top to bottom
+            for j in range(0, Tetris.FIELD_WIDTH):  # 위에서 아래로 스캔
                 if int(map[i][j]) > 0:
                     occupied = 1  # If a block is found, set the 'Occupied' flag to 1
                 if int(map[i][j]) == 0 and occupied == 1:
@@ -173,8 +173,8 @@ class RLAgent_v1(Tetris):
         score_list = []
         #이동 가능한 횟수
         for rot in range(0, RLAgent_v1.move_cnt[self.mino_index]):
-            for sideways in range(-5, 6):
-                move = [rot, sideways]#(회전 수 , 양옆으로 이동 수 ) 하나 만든다.
+            for col_dif in range(-5, 6):
+                move = [rot, col_dif]#(회전 수 , 양옆으로 이동 수 ) 하나 만든다.
                 field_copy = copy.deepcopy(map)
                 mino_copy = copy.deepcopy(mino)
                 test_map = self.simulate_map(field_copy, mino_copy, move)
@@ -216,5 +216,15 @@ class RLAgent_v1(Tetris):
             weights[i] = math.floor(1e4 * weights[i]) / 1e4  # Rounds the weights
         return move, weights
     
+    def choose_action(self):
+        move, _ = self.gradient_descent(self.weights)
+        return move
+    
     def __get_explore_change__(self):
         return self.explore_change
+    
+    def __get_weights__(self):
+        return self.weights
+    
+    def __set_weights__(self,weights):
+        self.weights = weights

@@ -4,10 +4,8 @@ from Color import COLORS
 from RLAgent_v1 import RLAgent_v1 as agent  # Make sure you import the TetrisGUI class
 import threading
 
-"""
-
-#class Application(tk.Frame):
-class Application(agent):
+#싱글 모드
+class Application(tk.Frame):
     
     def __init__(self, master=None):
         super().__init__(master)
@@ -76,7 +74,6 @@ class Application(agent):
             self.master.update()
         print("Game Over")
 """
-
 class Application(tk.Frame):
     def __init__(self, master=None):
         super().__init__(master)
@@ -182,7 +179,7 @@ class Application(tk.Frame):
         for i, _id in enumerate(canvas.rectangles):
             color_num = tetris.get_color(i // tetris.FIELD_WIDTH, i % tetris.FIELD_WIDTH)
             canvas.itemconfig(_id, fill=COLORS[color_num])
-
+"""
 
 root = tk.Tk()
 app = Application(master=root)
