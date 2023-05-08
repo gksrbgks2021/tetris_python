@@ -18,7 +18,7 @@ class RLAgent_v1(Tetris):
         super().__init__()
         self.master = master
         self.weights = []
-        self.explore_change = 0.5
+        self.explore_change = 0.5 # 탐색할지 말지 확률
         self.decay_rate = 0.99
         self.alpha = 0.01
         self.gamma = 0.9
@@ -174,19 +174,24 @@ class RLAgent_v1(Tetris):
     def find_best_move(self,map, mino, weights, explore_change):
         move_list = []
         score_list = []
+        #action_value = 각 action 취했을때 rewad 기댓값
+        action_value = np.full((10), -np.inf)
         #이동 가능한 횟수
-        for rot in range(0, RLAgent_v1.move_cnt[self.mino_index]):
+        for rot in range(0, RLAgent_v1.move_cnt[self.__get_mino_index__()]):
             for col_dif in range(-5, 6):
                 move = [rot, col_dif]#(회전 수 , 양옆으로 이동 수 ) 하나 만든다.
                 field_copy = copy.deepcopy(map)
                 mino_copy = copy.deepcopy(mino)
-                test_map = self.simulate_map(field_copy, mino_copy, move)
+                test_map, reward = self.simulate_map(field_copy, mino_copy, move)
                 if test_map is not None:
                     move_list.append(move)#move 리스트 추가. 
                     test_score = self.get_expected_score(test_map[0], weights)
                     score_list.append(test_score)
+                    
+                    action_value[col_dif+5] = test_score # append q_val
+        
         best_score = max(score_list)
-        best_move = move_list[score_list.index(best_score)]
+        best_move = move_list[score_list.index(best_score)] #argmax
 
         #확률적으로 이동.
         if random.random() < explore_change:

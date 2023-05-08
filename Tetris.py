@@ -136,3 +136,5 @@ class Tetris():
     def game_over_action(self) -> None:
         #todo : imple this method
         print('end game')
+    def __get_mino_index__(self)->int:
+        return self.mino_index
