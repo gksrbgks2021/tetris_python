@@ -8,6 +8,10 @@ import random
 import math
 from typing import List, Tuple, Dict
 
+
+ALPHA = 0.01
+GAMMA = 0.9 #discount factor
+
 class RLAgent_v1(Tetris):
 
     #미노 회전할수 있는 상태.
@@ -24,36 +28,27 @@ class RLAgent_v1(Tetris):
         self.gamma = 0.9
         self.evaluation_interval = 100
         self.evaluation_scores = []
-        print(self.num_actions)
 
     def move_simul(self, dr, dc,field, mino,offset, stop_flag) : # need 6 param
         """
-        move(0, -1 ) move (0, 1) 로 호출.
+        move_simul(0, -1 ) move_simul (0, 1) 로 호출.
+        
+        알고리즘
+            1. 놓을 수 있으면, offset만 update 하고 리턴.
+            2. 놓을수 없으면 stop_flag= true
         """
         with self.move_lock:
             if stop_flag:
                 return mino, offset
 
-            if all(self.is_tempcell_free(field,r + dr, c + dc) for (r, c) in self.get_mino_temp_coords(mino, offset)):#놓을 수 있으면
+            if all(self.is_tempcell_free(field,r + dr, c + dc) for (r, c) in self.get_mino_temp_coords(mino, offset)):
                 offset = [offset[0] + dr, offset[1] + dc]
-            elif dr == 1 and dc == 0: # 아래로 내려갈떄
-                stop_flag = any(r < 0 for (r, c) in self.get_mino_temp_coords(mino, offset))
-                if not self.game_over:
-                    self.apply_mino_simul(field,mino, offset) #현재 미노를 필드에 추가.
-                    pass
+            else : 
+                stop_flag = True
             return mino, offset, stop_flag
         
     def is_tempcell_free(self,map, r, c) -> bool :#(r,c) 위치가 0 인지 체크.
         return r < Tetris.FIELD_HEIGHT and 0 <= c < Tetris.FIELD_WIDTH and (r < 0 or map[r][c] == 0)
-
-    def apply_mino_simul(self, field,mino, offset) -> None:#시뮬레이션 적용.
-            for (r, c) in self.get_mino_temp_coords(mino, offset):
-                field[r][c] = self.mino_color
-            #하나라도 0 이면 카운트
-            new_field = [r for r in field if any(tile == 0 for tile in r)]
-            #제거 된 라인 수 
-            lines_eliminated = len(field)-len(new_field)
-            return lines_eliminated
 
     def get_mino_temp_coords(self,mino,offset): #좌표를 얻습니다.
         return [(r+offset[0], c + offset[1]) for (r, c) in mino]
@@ -86,9 +81,10 @@ class RLAgent_v1(Tetris):
                 offset = next_offset
             return mino , offset
     
+        
     def get_state(self, map):
         """
-            heights : max(높이)
+            heights : 각 열에서 max(높이) 들의 합
             diffs : heights[i+1] - heights[i] 차이 배열
             holes = 비어 있는 개수 
             max_height = 높이의 최댓값.
@@ -99,8 +95,9 @@ class RLAgent_v1(Tetris):
         diffs = [0]*(Tetris.FIELD_WIDTH-1)
         holes = 0
         diff_sum = 0
-
-        # 각 열의 꼭대기 인덱스 가져온다.
+        
+        #print(f'{Tetris.FIELD_WIDTH} , {Tetris.FIELD_HEIGHT} , {np.shape(map)}')
+        # 각 열에 쌓인 높이들을 구한다.
         for j in range(0, Tetris.FIELD_WIDTH):
             for i in range(0, Tetris.FIELD_HEIGHT):
                 if int(map[i][j]) > 0:
@@ -115,9 +112,9 @@ class RLAgent_v1(Tetris):
         max_height = max(heights)
 
         # 위에서 아래로 빈 셀의 개수(꼭대기는 1 인 셀)을 센다.
-        for i in range(0, Tetris.FIELD_HEIGHT):
+        for j in range(0, Tetris.FIELD_WIDTH):
             occupied = 0 
-            for j in range(0, Tetris.FIELD_WIDTH):  # 위에서 아래로 스캔
+            for i in range(0, Tetris.FIELD_HEIGHT):  # 위에서 아래로 스캔
                 if int(map[i][j]) > 0:
                     occupied = 1  # If a block is found, set the 'Occupied' flag to 1
                 if int(map[i][j]) == 0 and occupied == 1:
@@ -127,31 +124,40 @@ class RLAgent_v1(Tetris):
         for x in diffs:
             diff_sum += abs(x)
         
-        return height_sum, diff_sum, max_height, holes, np.std(heights)
+        return height_sum, diff_sum, max_height, holes
     
-    def get_expected_score(self,map, weights):
+    def get_expected_score(self,f, weights):
         # 가중치와, 이전에 제거된 라인 수가 주어졌을 때, 점수 계산해 리턴.
-        state_values = self.get_state(map)
-        expected_score = sum(weight * value for weight, value in zip(weights, state_values))
+        state_values = self.get_state(f)
+        expected_score = 0.0
+        
+        for w, v in zip(weights, state_values):
+            expected_score += w * v
+        
         return float(expected_score)
 
     def simulate_map(self,map, mino, move):
-        # 'move = (rotate, sideways)
-        #  rot = [0:3] 미노 회전 횟수
-        # sideways = [-9:9] 현재 위치에서 수평 이동
-        # 전체 라인을 제거 다음 보드 상태와 지워진 라인 수를 반환
+        """
+        parameter 설명
+            move = (rotate, sideways)
+            rot = [0:3] 미노 회전 횟수
+            sideways = [-9:9] 현재 위치에서 수평 이동할 열.
+        
+        return 값
+            전체 라인을 제거 다음 보드 상태와 지워진 라인 수를 반환
+        """
 
         rot = move[0]
         sideways = move[1]
         test_lines_removed = 0
-        reference_height = self.get_state(map)[0]
+        prev_state = self.get_state(map)
         stop_flag = False
 
         if mino is None:
             return None
         
         #바꿀 offset
-        offset = self.mino_offset
+        offset = copy.deepcopy(self.mino_offset)
 
         # rotate
         for _ in range(rot):
@@ -163,70 +169,140 @@ class RLAgent_v1(Tetris):
         # 충돌할떄까지 밑으로 내림
         while not stop_flag and all(self.is_tempcell_free(map,r + 1, c) for (r, c) in self.get_mino_temp_coords(mino, offset)):
             mino , offset, stop_flag = self.move_simul(1, 0, map, mino, offset, stop_flag)
+        map, test_lines_removed = self.apply_mino_simul(map,mino,offset)
         
         #보상으로 5*(제거된 라인 수)^2 - (이번 높이들의 max- prev 높이 max)
         #라인을 많이 제거하고, 높이 증가를 최소화하기위해 보상 설정
 
-        height_sum, diff_sum, max_height, holes, height_std = self.get_state(map)
-        one_step_reward = 5 * (test_lines_removed * test_lines_removed) - (height_sum - reference_height)
+        #height_sum, diff_sum, max_height, holes, height_std = self.get_state(map)
+        current_state = self.get_state(map)
+        
+        one_step_reward = 5 * (test_lines_removed * test_lines_removed) - 0.5 * (current_state[0] - prev_state[0]) - (current_state[2] - prev_state[2])
+        #print(f'height_sum : {height_sum} and one_step_reward {one_step_reward}')
+        
         return map, one_step_reward
+    
+    def apply_mino_simul(self, field, mino, offset) -> int:
+        for (r, c) in self.get_mino_temp_coords(mino, offset):
+            field[r][c] = self.mino_color
+
+        new_field = [r for r in field if any(tile == 0 for tile in r)]
+        lines_eliminated = len(field) - len(new_field)
+        for _ in range(lines_eliminated):
+            new_field.insert(0, [0]*Tetris.FIELD_WIDTH)
+        return new_field, lines_eliminated
     
     def find_best_move(self,map, mino, weights, explore_change):
         move_list = []
+        #action_value = 각 action 취했을때 reward 기댓값
+        #2d 배열을 만든다.
+        move_cnt = RLAgent_v1.move_cnt[self.__get_mino_index__()]
         score_list = []
-        #action_value = 각 action 취했을때 rewad 기댓값
-        action_value = np.full((10), -np.inf)
         #이동 가능한 횟수
-        for rot in range(0, RLAgent_v1.move_cnt[self.__get_mino_index__()]):
-            for col_dif in range(-5, 6):
+        for rot in range(move_cnt):
+            for col_dif in range(-5, 5):
                 move = [rot, col_dif]#(회전 수 , 양옆으로 이동 수 ) 하나 만든다.
+                
                 field_copy = copy.deepcopy(map)
                 mino_copy = copy.deepcopy(mino)
                 test_map, reward = self.simulate_map(field_copy, mino_copy, move)
+                #print(f'move {move} 일때 보상 {reward}')
                 if test_map is not None:
                     move_list.append(move)#move 리스트 추가. 
-                    test_score = self.get_expected_score(test_map[0], weights)
+                    test_score = self.get_expected_score(test_map, weights)
                     score_list.append(test_score)
                     
-                    action_value[col_dif+5] = test_score # append q_val
-        
+        score_list = np.array(score_list)
         best_score = max(score_list)
-        best_move = move_list[score_list.index(best_score)] #argmax
+        #print(f'best_score : {best_score}')
+        idx_max = score_list.argmax()
+        best_move = move_list[idx_max] #argmax
 
         #확률적으로 이동.
+        if len(score_list) == 0 :
+            move = [np.random.randint(move_cnt),0]
         if random.random() < explore_change:
             move = move_list[random.randint(0, len(move_list) - 1)]
         else:
             move = best_move
+            
+        self.update_explore_val()    
+        
         return move
     
+    def update_explore_val(self):
+        #랜덤 이동 확률 점점 감소한다.
+        if self.explore_change > 0.001:
+            self.explore_change *= 0.99
+        else : 
+            self.explore_change = 0
+            
     #학습 정책
     def train_policy(self,weights):
+        """_학습 알고리즘
+        1. 현재 상태에서 best action (놓을 열, 회전 횟수) 탐색.
+        2. 
+
+        Args:
+            weights (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+
         #action 탐색
         move = self.find_best_move(self.field, self.mino, weights, self.__get_explore_change__())
         current_params = self.get_state(self.field)
         test_field = copy.deepcopy(self.field)
         test_mino = copy.deepcopy(self.mino)
-        test_field = self.simulate_map(test_field, test_mino, move)
+        test_field = self.simulate_map(test_field, test_mino, move)#(after_simul_map, reward)
 
         if test_field is not None:
             new_params = self.get_state(test_field[0])
-            one_step_reward = test_field[1]
+            self.one_step_reward = test_field[1]        
         
-        #강화학습
-        for i in range(0, len(weights)):
-            weights[i] = weights[i] + self.alpha * weights[i] * (
-                one_step_reward - current_params[i] + self.gamma * new_params[i])
-        regularization_term = abs(sum(weights))
-        #가중치를 정규화
-        for i in range(0, len(weights)):
-            weights[i] = 100 * weights[i] / regularization_term
-            weights[i] = math.floor(1e4 * weights[i]) / 1e4  # Rounds the weights
+        regularization_term = abs(sum(weights)) / len(weights)
+        #regularization_term = abs(sum(weights))
+                                                      
+        
+        #마코프 프로세스.
+        for i in range(len(weights)):
+            weights[i] = weights[i] + ALPHA *  (
+                self.one_step_reward - current_params[i] + GAMMA * new_params[i])
+
+        
+        #정규화 함수들
+        def standardscale(w):
+            mean = abs(np.mean(w))
+            std = np.std(w)
+            if std != 0:
+                w = [(x - mean) / std for x in w]
+            return w
+        
+        def mynorm(w):
+            for i in range(len(w)):
+                w[i] = 100 * w[i] / regularization_term
+                w[i] = math.floor(1e4 * w[i]) / 1e4  # Rounds the weights
+            return w
+        
+        def l2_norm(w):
+            norm_factor = np.sqrt(np.sum(np.square(w)))
+            normalized_weights = w / norm_factor
+            return normalized_weights
+        #오버피팅을 피하기 위해 가중치를 정규화
+        
+        #weights = standardscale(weights)
+        weights = mynorm(weights)
+        
         return move, weights
     
+    
     def choose_action(self):
-        move, _ = self.train_policy(self.weights)
-        return move
+        #print('현재필드')
+        #self.show_field()
+        
+        move, weights = self.train_policy(self.weights)
+        return move, weights
     
     def __get_explore_change__(self):
         return self.explore_change

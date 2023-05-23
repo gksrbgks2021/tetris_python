@@ -24,29 +24,46 @@ class Tetris():
     #type hints
     def __init__(self) -> None:
         #2차원 필드 생성. height x width
-        self.field = [[0 for c in range(Tetris.FIELD_WIDTH)] for r in range(Tetris.FIELD_HEIGHT)]
-        self.score = 0
-        self.level = 0
-        self.total_lines_eliminated = 0
-        self.game_over = False
-        self.move_lock = Lock()
+        
+        self.init_variable()
+        self.init_setting()
         self.reset_mino()#미노 가져옴.
         
+        #큐러닝 attribute
+        #self.q_table = self.initialize_q_table()
+        
+    def init_variable(self):
+        """
+            싱글톤
+        """
+        self.move_lock = Lock()
         self.learning_rate = 0.1
         self.discount_factor = 0.99
         self.epsilon = 0.1
         self.num_actions = 3
         self.isbottom = False
-        #큐러닝 attribute
-        #self.q_table = self.initialize_q_table()
+    
+    def show_field(self):
+        for x in self.field:
+            print(x)
+            
+    def init_setting(self):
+        """
+            게임 종료 후 필드를 초기화 합니다. 
+        """
+        self.field = [[0 for c in range(Tetris.FIELD_WIDTH)] for r in range(Tetris.FIELD_HEIGHT)]
+        self.score = 0
+        self.level = 0
+        self.total_lines_eliminated = 0
+        self.game_over = False   
+        self.isbottom = False     
     
     def reset_mino(self)-> None: #미노를 하나 가져옵니다.
         self.mino_index = random.randint(0,6)
         self.mino =Tetris.MINOS[self.mino_index][:]#랜덤으로 하나 가져옵니다.
         self.mino_color = random.randint(1, len(COLORS)-1)
-        self.mino_offset = [-2, Tetris.FIELD_WIDTH//2] #위치 시작점.
+        self.mino_offset = [-2, Tetris.FIELD_WIDTH//2] #offset 시작점.(-2행, 4열)
         self.isbottom = False
-        self.game_over = False
 
     def get_mino_coords(self): #좌표를 얻습니다.
         return [(r+self.mino_offset[0], c + self.mino_offset[1]) for (r, c) in self.mino]
@@ -65,6 +82,7 @@ class Tetris():
             new_field = [r for r in self.field if any(tile == 0 for tile in r)]
             #제거 된 라인 수 
             lines_eliminated = len(self.field)-len(new_field)
+            
             self.total_lines_eliminated += lines_eliminated
             self.field = [[0]*Tetris.FIELD_WIDTH for x in range(lines_eliminated)] + new_field
             self.score += lines_eliminated * 500
@@ -78,13 +96,13 @@ class Tetris():
         with self.move_lock:
             if self.game_over:
                 return
-            #print('move call')
             continue_flag = False
 
             if all(self.is_cell_free(r + dr, c + dc) for (r, c) in self.get_mino_coords()):#if not collision
                 self.mino_offset = [self.mino_offset[0] + dr, self.mino_offset[1] + dc] #move offset
                 continue_flag = True
             elif dr == 1 and dc == 0:
+                #현재 좌표에서 행이 마이너스가 되면 게임 끝.
                 self.game_over = any(r < 0 for (r, c) in self.get_mino_coords())
                 if not self.game_over:
                     self.apply_mino() #현재 미노를 필드에 추가.
